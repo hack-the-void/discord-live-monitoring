@@ -168,6 +168,12 @@ def main() -> int:
         0,
         59,
     )
+    default_cyber_hour = parse_int_or_fallback(
+        env_defaults.get("CYBER_RUN_HOUR"),
+        10,
+        0,
+        23,
+    )
 
     default_python = project_root / ".venv" / "bin" / "python3"
     python_bin_default = (
@@ -187,12 +193,14 @@ def main() -> int:
         daily_minute = ask_int("Minute quotidienne (0-59)", default_run_minute, 0, 59)
 
     install_cyber = ask_yes_no(
-        "Activer le job cyber horaire (run_cyber_once.py) ?",
+        "Activer le job cyber quotidien (run_cyber_once.py) ?",
         True,
     )
+    cyber_hour = None
     cyber_minute = None
     if install_cyber:
-        cyber_minute = ask_int("Minute de l'heure pour cyber (0-59)", default_cyber_minute, 0, 59)
+        cyber_hour = ask_int("Heure quotidienne cyber (0-23)", default_cyber_hour, 0, 23)
+        cyber_minute = ask_int("Minute quotidienne cyber (0-59)", default_cyber_minute, 0, 59)
 
     if not install_daily and not install_cyber:
         if not ask_yes_no(
@@ -224,10 +232,10 @@ def main() -> int:
             )
             managed_lines.append("")
 
-        if install_cyber and cyber_minute is not None:
-            managed_lines.append("# Veille cyber horaire")
+        if install_cyber and cyber_hour is not None and cyber_minute is not None:
+            managed_lines.append("# Veille cyber quotidienne")
             managed_lines.append(
-                f"{cyber_minute} * * * * "
+                f"{cyber_minute} {cyber_hour} * * * "
                 f"{build_command(project_root, python_bin, 'run_cyber_once.py', cyber_log)}"
             )
             managed_lines.append("")
@@ -259,8 +267,8 @@ def main() -> int:
         assert daily_hour is not None and daily_minute is not None
         print(f"- IA quotidienne: {daily_hour:02d}:{daily_minute:02d}")
     if install_cyber:
-        assert cyber_minute is not None
-        print(f"- Cyber horaire: HH:{cyber_minute:02d}")
+        assert cyber_hour is not None and cyber_minute is not None
+        print(f"- Cyber quotidien: {cyber_hour:02d}:{cyber_minute:02d}")
     if not install_daily and not install_cyber:
         print("- Bloc veille-tech supprime de la crontab")
 

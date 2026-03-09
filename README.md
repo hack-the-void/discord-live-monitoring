@@ -2,7 +2,7 @@
 
 Service de veille automatisee avec deux pipelines independants:
 - pipeline IA (digest quotidien)
-- pipeline cyber/CVE (check horaire)
+- pipeline cyber/CVE (check quotidien)
 
 Le projet lit des flux RSS, priorise les contenus via OpenAI, puis envoie le resultat sur Discord via webhook.
 
@@ -56,7 +56,7 @@ Renseigner ensuite les variables dans `.env`.
 | `RUN_HOUR` | Non | Heure du run quotidien (0-23) | `8` |
 | `RUN_MINUTE` | Non | Minute du run quotidien (0-59) | `30` |
 
-### Variables cyber (check horaire CVE)
+### Variables cyber (check quotidien CVE)
 
 | Variable | Requise | Description | Defaut |
 |---|---|---|---|
@@ -66,8 +66,9 @@ Renseigner ensuite les variables dans `.env`.
 | `CYBER_OPENAI_MODEL_FALLBACKS` | Non | Fallbacks cyber (csv) | herite de `OPENAI_MODEL_FALLBACKS` |
 | `CYBER_MAX_ITEMS_PER_FEED` | Non | Max items lus par flux cyber | `30` |
 | `CYBER_MAX_NEW_ITEMS_PER_RUN` | Non | Max nouveaux items traites par run | `30` |
-| `CYBER_SHORTLIST_SIZE` | Non | Taille shortlist cyber | `12` |
-| `CYBER_RUN_MINUTE` | Non | Minute de passage a chaque heure (0-59) | `0` |
+| `CYBER_SHORTLIST_SIZE` | Non | Nombre max d'alertes prioritaires envoyees | `12` |
+| `CYBER_RUN_HOUR` | Non | Heure du run cyber quotidien (0-23) | `10` |
+| `CYBER_RUN_MINUTE` | Non | Minute du run cyber quotidien (0-59) | `0` |
 | `CYBER_SEEN_ITEMS_PATH` | Non | Stockage des items deja vus | `data/cyber_seen_items.json` |
 | `CYBER_SUPPRESS_INITIAL_BACKLOG` | Non | Si `true`, initialise sans envoyer le backlog initial | `false` |
 | `CYBER_DISCORD_USE_EMBEDS` | Non | Envoi cyber en embeds | `true` |
@@ -93,6 +94,7 @@ python3 run_cyber_once.py
 
 Comportement cyber important:
 - si aucun nouvel item n'est detecte, aucun message Discord n'est envoye
+- si des nouveautes existent mais qu'aucune n'est jugee prioritaire, aucun message n'est envoye
 - les IDs deja envoyes sont persistes dans `CYBER_SEEN_ITEMS_PATH`
 
 ## Execution en service
@@ -105,7 +107,7 @@ Lancer le scheduler IA quotidien:
 python3 main.py
 ```
 
-Lancer le scheduler cyber horaire:
+Lancer le scheduler cyber quotidien:
 
 ```bash
 python3 main_cyber.py
@@ -147,7 +149,7 @@ Le script:
 - `run_once.py`: execution ponctuelle IA
 - `run_cyber_once.py`: execution ponctuelle cyber
 - `main.py`: scheduler IA quotidien
-- `main_cyber.py`: scheduler cyber horaire
+- `main_cyber.py`: scheduler cyber quotidien
 - `setup_cron.py`: assistant de configuration crontab
 
 ## Securite

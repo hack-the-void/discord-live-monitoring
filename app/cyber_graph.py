@@ -285,9 +285,6 @@ def build_cyber_watch_graph(settings: CyberSettings):
         if not new_items:
             return {**state, "shortlisted_items": []}
 
-        if len(new_items) <= settings.shortlist_size:
-            return {**state, "shortlisted_items": new_items}
-
         prompt_lines = []
         for idx, item in enumerate(new_items):
             cve_ids = item.get("cve_ids", [])
@@ -309,12 +306,19 @@ def build_cyber_watch_graph(settings: CyberSettings):
                     "Tu es un analyste SOC orienté gestion de vulnérabilités. "
                     "Sélectionne les alertes CVE avec impact opérationnel élevé: "
                     "exploitation active, gravité critique, surface d'attaque large, "
-                    "technos très utilisées. Évite les doublons."
+                    "technos très utilisées. Évite les doublons. "
+                    "Sois strict: ne sélectionne rien si aucune alerte n'est réellement "
+                    "prioritaire."
                 )
             ),
             HumanMessage(
                 content=(
-                    f"Choisis jusqu'à {settings.shortlist_size} indices d'alertes prioritaires.\n\n"
+                    (
+                        f"Choisis jusqu'à {settings.shortlist_size} indices d'alertes "
+                        "prioritaires, triés par importance décroissante. "
+                        "Tu peux retourner une liste vide si aucune alerte n'est "
+                        "suffisamment critique.\n\n"
+                    )
                     + "\n\n".join(prompt_lines)
                 )
             ),
@@ -332,7 +336,11 @@ def build_cyber_watch_graph(settings: CyberSettings):
                     picked.append(idx)
 
             if not picked:
-                picked = list(range(min(settings.shortlist_size, len(new_items))))
+                LOGGER.info(
+                    "Shortlist cyber: aucune alerte assez critique parmi %s nouveautes",
+                    len(new_items),
+                )
+                return {**state, "shortlisted_items": []}
 
             shortlisted = [new_items[idx] for idx in picked[: settings.shortlist_size]]
             return {**state, "shortlisted_items": shortlisted}
@@ -379,7 +387,7 @@ def build_cyber_watch_graph(settings: CyberSettings):
             ),
             HumanMessage(
                 content=(
-                    f"Rédige un bulletin CVE horaire daté du {now} en Markdown "
+                    f"Rédige un bulletin CVE quotidien daté du {now} en Markdown "
                     "(lecture 3-5 minutes) avec:\n"
                     "1) Un résumé exécutif (3-5 points).\n"
                     "2) Une section 'Priorités immédiates' avec les vulnérabilités "
@@ -417,6 +425,7 @@ def build_cyber_watch_graph(settings: CyberSettings):
 
     def notify_node(state: CyberWatchState) -> CyberWatchState:
         new_entry_ids = state.get("new_entry_ids", [])
+        shortlisted_items = state.get("shortlisted_items", [])
         errors = list(state.get("errors", []))
         digest = state.get("digest_markdown", "")
 
@@ -457,14 +466,30 @@ def build_cyber_watch_graph(settings: CyberSettings):
                 "sent": False,
             }
 
+        if not shortlisted_items:
+            seen_store.mark_seen(new_entry_ids)
+            LOGGER.info(
+                (
+                    "Nouveautes cyber detectees (%s) mais aucune alerte prioritaire: "
+                    "aucun envoi Discord"
+                ),
+                len(new_entry_ids),
+            )
+            return {
+                **state,
+                "token_usage_summary": token_usage_summary,
+                "errors": errors,
+                "sent": False,
+            }
+
         if not digest:
-            digest = "Nouvelles alertes CVE detectees, mais digest vide."
+            digest = "Alertes CVE prioritaires détectées, mais digest vide."
 
         try:
             if settings.discord_use_embeds:
                 embeds = _build_cyber_embeds(
                     digest=digest,
-                    shortlisted_items=state.get("shortlisted_items", []),
+                    shortlisted_items=shortlisted_items,
                     new_count=len(new_entry_ids),
                     token_usage_summary=token_usage_summary
                     if settings.token_usage_report_in_discord
@@ -476,7 +501,7 @@ def build_cyber_watch_graph(settings: CyberSettings):
                 send_discord_embeds(
                     settings.discord_webhook_url,
                     embeds=embeds,
-                    content="Nouvelles alertes CVE détectées",
+                    content="Alertes CVE prioritaires détectées",
                 )
             else:
                 payload = digest
@@ -508,7 +533,11 @@ def build_cyber_watch_graph(settings: CyberSettings):
                     suppress_embeds=settings.discord_suppress_embeds,
                 )
             seen_store.mark_seen(new_entry_ids)
-            LOGGER.info("Bulletin cyber envoye (%s nouveautes)", len(new_entry_ids))
+            LOGGER.info(
+                "Bulletin cyber envoye (%s alertes prioritaires / %s nouveautes)",
+                len(shortlisted_items),
+                len(new_entry_ids),
+            )
             return {
                 **state,
                 "token_usage_summary": token_usage_summary,

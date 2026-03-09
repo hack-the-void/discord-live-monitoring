@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from app.cyber_scheduler import start_hourly_cyber_scheduler
+from app.cyber_scheduler import start_daily_cyber_scheduler
 
 
 if __name__ == "__main__":
@@ -10,4 +10,4 @@ if __name__ == "__main__":
         level=logging.INFO,
         format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     )
-    start_hourly_cyber_scheduler()
+    start_daily_cyber_scheduler()

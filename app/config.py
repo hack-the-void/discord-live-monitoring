@@ -96,6 +96,7 @@ class CyberSettings:
     max_new_items_per_run: int
     shortlist_size: int
     timezone: str
+    run_hour: int
     run_minute: int
     seen_items_path: str
 
@@ -191,6 +192,7 @@ def load_cyber_settings() -> CyberSettings:
         max_new_items_per_run=int(os.getenv("CYBER_MAX_NEW_ITEMS_PER_RUN", "30")),
         shortlist_size=int(os.getenv("CYBER_SHORTLIST_SIZE", "12")),
         timezone=os.getenv("TIMEZONE", "Europe/Paris").strip(),
+        run_hour=_int_env("CYBER_RUN_HOUR", 10, min_value=0, max_value=23),
         run_minute=_int_env("CYBER_RUN_MINUTE", 0, min_value=0, max_value=59),
         seen_items_path=os.getenv(
             "CYBER_SEEN_ITEMS_PATH",
